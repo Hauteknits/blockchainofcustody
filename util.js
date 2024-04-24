@@ -1,4 +1,6 @@
-import { Sha256 } from "https://deno.land/std/hash/sha256.ts"
+import { crypto } from "https://deno.land/std@0.115.0/crypto/mod.ts";
+
+//https://friendlyuser.github.io/posts/tech/2023/An_Introduction_to_the_Deno_Crypto_Module/
 //AES encryption https://medium.com/deno-the-complete-reference/private-key-aes-encryption-decryption-in-deno-10cf33b41eaf
 const textEnc = new TextEncoder();
 
