@@ -1,4 +1,4 @@
-import { crypto } from "https://deno.land/std@0.223.0/crypto/mod.ts";
+import { Sha256 } from "https://deno.land/std@0.157.0/hash/sha256.ts";
 import { Aes } from "https://deno.land/x/crypto/aes.ts";
 import { Ecb, Padding } from "https://deno.land/x/crypto/block-modes.ts";
 const textEnc = new TextEncoder();
@@ -8,14 +8,31 @@ const AES_KEY = textEnc.encode("R0chLi4uLi4uLi4=");
 const cipher = new Ecb(Aes, AES_KEY, Padding.NONE);
 const decipher = new Ecb(Aes, AES_KEY, Padding.NONE);
 
+const MIN_BLOCK_SIZE = 144;
 //https://friendlyuser.github.io/posts/tech/2023/An_Introduction_to_the_Deno_Crypto_Module/
 //AES encryption https://medium.com/deno-the-complete-reference/private-key-aes-encryption-decryption-in-deno-10cf33b41eaf
 
+/*
+To EASILY convert between any byte array, do the following
+let convertedArray = new ArrayYouWant(arrayYouHave.buffer);
+*/
 
-export function readBlockChain(){
-
+export function readBlockChain(path){
+	let data = Deno.readFileSync(path);
+	//TODO: Parse incoming data, read first block by passing it, then read the length of the block that was just parsed, trim the array, and pass it through again
+	let blockChain = [];
+	let marker = 0;
+	let firstBlock = u8ToBlock(data);
+	blockChain.push(firstBlock);
+	while(true){
+		let sliced = data.slice(marker+blockChain[blockChain.length-1].blockLength+MIN_BLOCK_SIZE, data.length);
+		if(sliced.length == 0) return blockChain;
+		let b = u8ToBlock(sliced);
+		marker+=blockChain[blockChain.length-1].blockLength+MIN_BLOCK_SIZE;
+		blockChain.push(b);
+	}
 }
-export function writeBlockChain(blockChain){
+export function writeBlockChain(blockChain, path){
 	let array = null;
 	blockChain.forEach((block)=>{
 		if(array === null)
@@ -23,7 +40,7 @@ export function writeBlockChain(blockChain){
 		else
 			array = concatArray(array, blockToU8(block));
 	});
-	Deno.writeFileSync("blockchain", array);
+	Deno.writeFileSync(path, array);
 }
 export class Block{
 	constructor(prevBlock){
@@ -38,9 +55,8 @@ export class Block{
 		this.data=""
 	}
 }
-async function makeHash(blockChain){
-	hash = await crypto.subtle.digest("SHA-256", blockToU8(blockChain.at(blockChain.length-1)));
-	return hash;
+export function makeHash(block){
+	return new Sha256().update(blockToU8(block)).hex();
 }
 
 export function blockToU8(block){
@@ -74,7 +90,7 @@ export function u8ToBlock(u8){
 	let creatorA = u8.slice(116,128);
 	let ownerA = u8.slice(128, 140);
 	let lengthA = u8.slice(140,144);
-	let dataA = u8.slice(144, u8.length-1);
+	
 
 	//hash
 	block.hash = u8ToHex(hashA);
@@ -89,10 +105,12 @@ export function u8ToBlock(u8){
 	block.owner = textDec.decode(ownerA).replace(/\0/g,"");
 	//Length
 	block.blockLength = new DataView(lengthA.buffer, 0).getUint32(0, true);
+	let dataA = u8.slice(144, 144+block.blockLength);
 	//Data
 	/*Cluster fuck of a method. Pretty much what it does is create an array of "\0" the size of the block length, then concats that on to a character array of the data string.
 	then finally trims that array down to the length of the data and joins back into a string :)*/ 
-	block.data = textDec.decode(dataA).split("").concat(new Array(block.blockLength).fill("\0")).slice(0,block.blockLength).join("")
+	block.data = textDec.decode(dataA).split("").concat(new Array(block.blockLength).fill("\0")).slice(0,block.blockLength).join("");
+
 	return block;
 
 
