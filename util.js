@@ -66,8 +66,8 @@ export function blockToU8(block){
 	//timestamp
 	blockArray = concatArray(blockArray, new Uint8Array((new Float64Array([block.timestamp])).buffer));
 	//UUID & Evidence
-	blockArray = concatArray(blockArray, cipher.encrypt(textEnc.encode(block.UUID.replace(/-/g, ""))));
-	blockArray = concatArray(blockArray, cipher.encrypt(textEnc.encode(block.evID.replace(/-/g, ""))));
+	blockArray = concatArray(blockArray, (cipher.encrypt(textEnc.encode(block.UUID.replace(/-/g, "")))).slice(0.32)); //investigate wrong sizes
+	blockArray = concatArray(blockArray, (cipher.encrypt(textEnc.encode(block.evID.replace(/-/g, "")))).slice(0,32));
 	//State, creator, owner
 	blockArray = concatArray(blockArray, pad(textEnc.encode(block.state), 12));
 	blockArray = concatArray(blockArray, pad(textEnc.encode(block.creator), 12));
@@ -98,7 +98,7 @@ export function u8ToBlock(u8){
 	block.timestamp = (new Float64Array(timestampA.buffer))[0];
 	//IDs
 	block.UUID = makeUUID(textDec.decode(decipher.decrypt(uuidA)));
-	block.evID = makeUUID(textDec.decode(decipher.decrypt(evidA)));
+	block.evID = textDec.decode(decipher.decrypt(evidA)); //get rid of makeUUID
 	//state, creator, owner
 	block.state = textDec.decode(stateA).replace(/\0/g,"");
 	block.creator = textDec.decode(creatorA).replace(/\0/g,"");

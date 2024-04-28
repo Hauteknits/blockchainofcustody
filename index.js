@@ -65,14 +65,62 @@ function showHistory(){
 	try{
 		Deno.readFileSync(BLOCK_PATH);
 	}catch(e){
-		if(!(e instanceof Deno.errors.NotFound)) Deno.exit(1);
+		if(e instanceof Deno.errors.NotFound) Deno.exit(1);
 	}
 	blockChain = util.readBlockChain(BLOCK_PATH);
-	//parse through the blockchain and print information accordingly
+	//verify password
+	if(passwordArr.indexOf(flags.p) == -1) Deno.exit(1);
+	var prints = 0;
+	if(flags.r){
+		for(let i = blockChain.length-1; i >= 0; i--){
+			let w = blockChain[i];
+			//filters
+			if(flags.c != undefined){
+				if(w.UUID != flags.c) continue;
+			}
+			if(flags.i != undefined){
+				if(w.evID.replace(/\0/g, "") != flags.i) continue;
+			}
+			let t = new Date();
+			t.setUTCSeconds(w.timestamp);
+			t = t.toString();
+			let suffix = (w.timestamp.toString().split("."))[1];
+			console.log(`Case: ${w.UUID}\nItem: ${w.evID.replace(/\0/g,"")}\nAction: ${w.state}\nTime: ${t.match(/^[^.]*/)}${suffix}Z`);
+			prints++;
+			if(flags.n != undefined){
+				if(prints >= flags.n) break;
+			}
+		}
+	}else{
+		for(let i = 0; i < blockChain.length; i++){
+			let w = blockChain[i];
+			//filters
+			if(flags.c != undefined){
+				if(w.UUID != flags.c) continue;
+			}
+			if(flags.i != undefined){
+				if(w.evID.replace(/\0/g, "") != flags.i) continue;
+			}
+			let t = new Date();
+			t.setUTCSeconds(w.timestamp);
+			t = t.toString();
+			let suffix = (w.timestamp.toString().split("."))[1];
+			console.log(`Case: ${w.UUID}\nItem: ${w.evID.replace(/\0/g,"")}\nAction: ${w.state}\nTime: ${t.match(/^[^.]*/)}${suffix}Z`); //FIX TIME RENDERING
+			prints++;
+			if(flags.n != undefined){
+				if(prints >= flags.n) break;
+			}
+		}
+	}
 	return;
 }
 function showItems(){
-	//check for blockchain and import
+	try{
+		Deno.readFileSync(BLOCK_PATH);
+	}catch(e){
+		if(e instanceof Deno.errors.NotFound) Deno.exit(1);
+	}
+	blockChain = util.readBlockChain(BLOCK_PATH);
 	//create an array of blocks with corresponding case numbers
 	//print the array
 	try{
@@ -82,17 +130,9 @@ function showItems(){
 	}
 	blockChain = util.readBlockChain(BLOCK_PATH);
 	if(flags.c == undefined ) Deno.exit(1);
-
-	var cID;
-	for(var i = 0; i < Deno.args.length; i++){
-		if(Deno.args[i] == '-c'){
-			cID = Deno.args[i+1];
-			i++;
-		}
-	}
 	var caseItems = [];
 	for (var i = 0; i < blockChain.length; i++) {
-		if(blockChain[i].UUID == cID) {
+		if(blockChain[i].UUID == flags.c) {
 			caseItems.push(blockChain[i])
 		}
 	}
@@ -119,7 +159,7 @@ function checkIn(){
 	try{
 		Deno.readFileSync(BLOCK_PATH);
 	}catch(e){
-		if(!(e instanceof Deno.errors.NotFound)) Deno.exit(1);
+		if(e instanceof Deno.errors.NotFound) Deno.exit(1);
 	}
 	blockChain = util.readBlockChain(BLOCK_PATH);
 	//check for variables
@@ -153,7 +193,7 @@ function checkOut(){
 	try{
 		Deno.readFileSync(BLOCK_PATH);
 	}catch(e){
-		if(!(e instanceof Deno.errors.NotFound)) Deno.exit(1);
+		if(e instanceof Deno.errors.NotFound) Deno.exit(1);
 	}
 	blockChain = util.readBlockChain(BLOCK_PATH);
 	//check for variables
@@ -204,7 +244,7 @@ function add(){
 	try{
 		Deno.readFileSync(BLOCK_PATH);
 	}catch(e){
-		if(!(e instanceof Deno.errors.NotFound)) Deno.exit(1);
+		if(e instanceof Deno.errors.NotFound) Deno.exit(1);
 	}
 	blockChain = util.readBlockChain(BLOCK_PATH);
 	if(flags.c == undefined || flags.i == undefined || flags.g == undefined ||flags.p == undefined) Deno.exit(1);
@@ -247,7 +287,7 @@ function init(){
 	try{
 		Deno.readFileSync(BLOCK_PATH);
 	}catch(e){
-		if(!(e instanceof Deno.errors.NotFound)) return console.log("Blockchain file found with INITIAL block.");
+		if(!(e instanceof Deno.errors.NotFound)) Deno.exit(1);
 	}
 	console.log("Blockchain file not found. Created INITIAL block.");
 	let block = new util.Block();
