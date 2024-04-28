@@ -1,0 +1,35 @@
+documenation:
+Exported methods of util.js:
+
+array<Block>	readBlockChain(path:String):
+will read in the blockchain from disk and parse the raw data into Block classes in an array
+**Does NOT check if path exists
+
+void		writeBlockChain(blockChain:array<Block>, path:String):
+takes in the blockchain array and a string path and converts the blocks into raw data, writes out to specified path
+
+String		makeHash(block:Block):
+Takes in a Block object and returns a SHA256 hash
+
+Uint8Array		blockToU8(block:Block):
+takes a Block object and converts into a byte array (likely will be un-exported, you shouldn't need to use this)
+
+Block 			u8ToBlock(u8:Uint8Array):
+takes in a Uint8Array and converts into a block (likely will be un-exported, you shouldn't need to use this)
+
+Uint8Array 		hexToU8(str:String, length:int):
+takes in a hexadecimal number as a string and converts directly to u8. Length is used for padding/trunkation (likely will be un-exported, you shouldn't need to use this)
+
+class Block: a single block on the blockchain, has all the fields that are required (no type checking is enforced, so don't screw it up)
+timestamp: double (timestamping will only work properly on linux, set all timestamps to a 0 and make a comment so that I know to go back and change it)
+blockLength: int
+everything else: String
+
+To run Deno:
+deno run -A index.js [args]
+
+args are stored in flags class here's an example of grabbing one
+if I use `deno run -A index.js -p secretpassword`
+then `flags.p == 'secretpassword'` will be true
+
+If there's any invalid input, use Deno.exit(1)

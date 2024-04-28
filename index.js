@@ -10,6 +10,7 @@ const PASSWORDS = {
 	"BCHOC_PASSWORD_EXECUTIVE": "E69E",
 	"BCHOC_PASSWORD_CREATOR": "C67C"
 };
+const passwordArr = ["P80P","L76L","A65A","E69E","C67C"];
 const flags = parseArgs(Deno.args, {
 	boolean:['r'],
 	string:['c','i','p','n','o','why','y','g']
@@ -83,16 +84,88 @@ function showCases(){
 }
 function checkIn(){
 	//check for blockchain and import
-	//look for block with item ID
+	try{
+		Deno.readFileSync(BLOCK_PATH);
+	}catch(e){
+		if(!(e instanceof Deno.errors.NotFound)) Deno.exit(1);
+	}
+	blockChain = util.readBlockChain(BLOCK_PATH);
+	//check for variables
+	if(flags.i == undefined || flags.p == undefined) Deno.exit(1);
 	//verify password
+	if(passwordArr.indexOf(flags.p) == -1) Deno.exit(1);
+	//look for block with item ID
+	let wBlock = null;
+	blockChain.forEach((e)=>{
+		if(e.evID.replace(/\0/g, "") == flags.i) wBlock = e;
+	});
+	if(wBlock == null) Deno.exit(1);
+	if(wBlock.state != "CHECKEDOUT") Deno.exit(1);
 	//copy information like caseid creator etc and create new block
+	let block = new util.Block();
+	block.hash = util.makeHash(blockChain[blockChain.length-1]);
+	block.timestamp = 0; //FIX IN LINUX
+	block.UUID = wBlock.UUID;
+	block.evID = wBlock.evID;
+	block.state = "CHECKEDIN";
+	block.creator = flags.g;
+	block.owner = "\0";
+	block.blockLength = 15;
+	block.data = "Modified Block\0"; 
+	blockChain.push(block);
+	util.writeBlockChain(blockChain, BLOCK_PATH);
 	return;
 }
 function checkOut(){
 	//check for blockchain and import
-	//look for block with item ID
+	try{
+		Deno.readFileSync(BLOCK_PATH);
+	}catch(e){
+		if(!(e instanceof Deno.errors.NotFound)) Deno.exit(1);
+	}
+	blockChain = util.readBlockChain(BLOCK_PATH);
+	//check for variables
+	if(flags.i == undefined || flags.p == undefined) Deno.exit(1);
 	//verify password
+	if(passwordArr.indexOf(flags.p) == -1) Deno.exit(1);
+	//look for block with item ID
+	let wBlock = null;
+	blockChain.forEach((e)=>{
+		if(e.evID.replace(/\0/g, "") == flags.i) wBlock = e;
+	});
+	if(wBlock == null) Deno.exit(1);
+	if(wBlock.state != "CHECKEDIN") Deno.exit(1);
+	var owner;
+	switch(flags.p){
+		case "P80P":
+			owner = "POLICE";
+			break;
+		case "L76L":
+			owner = "POLICE";
+			break;
+		case "A65A":
+			owner = "POLICE";
+			break;
+		case "E69E":
+			owner = "POLICE";
+			break;
+		case "C67C":
+			owner = "POLICE";
+			break;
+	}
 	//copy information like caseid creator etc and create new block
+	let block = new util.Block();
+	block.hash = util.makeHash(blockChain[blockChain.length-1]);
+	block.timestamp = 0; //FIX IN LINUX
+	block.UUID = wBlock.UUID;
+	block.evID = wBlock.evID;
+	block.state = "CHECKEDOUT";
+	block.creator = flags.g;
+	block.owner = owner;
+	block.blockLength = 15;
+	block.data = "Modified Block\0"; 
+	blockChain.push(block);
+	util.writeBlockChain(blockChain, BLOCK_PATH);
 	return;
 }
 function add(){
@@ -103,7 +176,36 @@ function add(){
 	}
 	blockChain = util.readBlockChain(BLOCK_PATH);
 	if(flags.c == undefined || flags.i == undefined || flags.g == undefined ||flags.p == undefined) Deno.exit(1);
+	if(passwordArr.indexOf(flags.p) == -1) Deno.exit(1);
+	//validate uuid
+	if(flags.c.match(/^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/g) == null) Deno.exit(1);
 
+	//manually parse items 
+	let items = [];
+	for(var i = 0; i < Deno.args.length; i++){
+		if(Deno.args[i] == '-i'){
+			items.push(Deno.args[i+1]);
+			i++;
+		}
+	}
+	//make the block :)
+	items.forEach((e)=>{
+		console.log(e);
+		let block = new util.Block();
+		block.hash = util.makeHash(blockChain[blockChain.length-1]);
+		block.timestamp = 0; //FIX IN LINUX
+		block.UUID = flags.c;
+		block.evID = e.split("").concat(new Array(32).fill("\0")).slice(0,32).join("");
+		block.state = "CHECKEDIN";
+		block.creator = flags.g;
+		block.owner = "\0";
+		block.blockLength = 12;
+		block.data = "Added Block\0";
+		blockChain.push(block);
+		console.log(block);
+	});
+
+	util.writeBlockChain(blockChain, BLOCK_PATH);
 	return;
 }
 function verify(){
@@ -143,7 +245,6 @@ function generateTestData(block){
 	block.blockLength=14;
 	block.data="Initial BlockH"
 }
-
 
 
 //testwrite
