@@ -149,16 +149,16 @@ function showHistory(){
 	return;
 }
 function showItems(){
+	//create an array of blocks with corresponding case numbers
+	//print the array
 	try{
 		Deno.readFileSync(BLOCK_PATH);
 	}catch(e){
 		if(e instanceof Deno.errors.NotFound) Deno.exit(1);
 	}
 	blockChain = util.readBlockChain(BLOCK_PATH);
-	//create an array of blocks with corresponding case numbers
-	//print the array
 	if(flags.c == undefined ) Deno.exit(1);
-	var caseItems = [];
+	var caseItems = []; // caseItems stores all blocks with a certain UUID
 	for (var i = 0; i < blockChain.length; i++) {
 		if(blockChain[i].UUID == flags.c) {
 			caseItems.push(blockChain[i])
@@ -177,7 +177,7 @@ function showCases(){
 	}
 	blockChain = util.readBlockChain(BLOCK_PATH);
 	console.log("Cases:");
-	var caseIDs = [];
+	var caseIDs = []; // caseIDs stores all unique UUIDs to prevent repeats being printed
 	for (var i = 0; i < blockChain.length; i++) {
 		var search = caseIDs.includes(blockChain[i].UUID);
 		if (!search) {
@@ -314,6 +314,77 @@ function add(){
 	return;
 }
 function verify(){
+	try{
+		Deno.readFileSync(BLOCK_PATH);
+	}catch(e){
+		if(e instanceof Deno.errors.NotFound) Deno.exit(1);
+	}
+	blockChain = util.readBlockChain(BLOCK_PATH);
+	console.log("Transactions in blockchain: ", blockChain.length);
+	var error = 0;
+	var badBlock;
+	var badParent;
+	var cases = [];
+	var parents = [];
+	for (var i = 0; i < blockChain.length; i++) {
+		//check for parent not found
+		//error = 1
+		var folder = cases.includes(blockChain[i].UUID);
+		if (!folder) {
+			if (blockChain[i].state != "CHECKEDIN") {
+				error = 1;
+				badBlock = util.makeHash(blockChain[i]);
+			}
+		} // if first block of caseID is not checked in, parent is not found
+ 
+		//check for shared parentage
+		//error = 2
+		var siblings = parents.includes(blockChain[i].hash);
+		if (siblings) {
+			error = 2;
+			badBlock = util.makeHash(blockChain[i]);
+			badParent = blockChain[i].hash;
+		} else {
+			parents.push(blockChain[i].hash);
+		} // if two blocks share the same hash, parent is shared
+
+		//check for checksum validity
+		//error = 3
+		var checksum = util.makeHash(blockChain[i]);
+		if (checksum != blockChain[i+1].hash && i != blockChain.length - 1) {
+			error = 3; 
+			badBlock = checksum;
+			break;
+		} // if hash of next block in blockChain does not equal checksum, checksum doesn't match
+
+		//check for removal
+		//error = 4
+		if (blockChain[i].state == "disposed" || blockChain[i].state == "destroyed" || blockChain[i].state == "released") {
+			for (var j = i+1; j < blockChain.length; j++) {
+				if (blockChain[j].evID == blockChain[i].evID) {
+					error = 4;
+					badBlock = util.makeHash(blockChain[j]);
+				}
+			}
+		} // if a block with the same evID comes after a removed block, block was transacted after removal
+	}
+
+	if (error == 0) {
+		console.log("State of blockchain: CLEAN");
+	} else {
+		console.log("State of blockchain: ERROR");
+		console.log("Bad block: ", badBlock);
+		if (error == 1) {
+			console.log("Parent block: NOT FOUND");
+		} else if (error == 2) {
+			console.log("Parent block: ", badParent);
+			console.log("Two blocks were found with the same parent.");
+		} else if (error == 3) {
+			console.log("Block contents do not match block checksum.");
+		} else if (error == 4) {
+			console.log("Item checked out or checked in after removal from chain.");
+		}
+	}
 	return;
 }
 function init(){
