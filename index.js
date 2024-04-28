@@ -57,7 +57,41 @@ switch(flags._[0]){
 		Deno.exit(1);
 }
 function remove(){
+	try{
+		Deno.readFileSync(BLOCK_PATH);
+	}catch(e){
+		if(e instanceof Deno.errors.NotFound) Deno.exit(1);
+	}
+	blockChain = util.readBlockChain(BLOCK_PATH);
+	if(passwordArr.indexOf(flags.p) == -1) Deno.exit(1);
+	if((flags.y == undefined && flags.why == undefined) || flags.i == undefined ||flags.p == undefined) Deno.exit(1);
+	let reason = flags.y == undefined ? flags.why : flags.y;
+	//look for block with item ID
+	let wBlock = null;
+	blockChain.forEach((e)=>{
+		if(e.evID.replace(/\0/g, "") == flags.i) wBlock = e;
+	});
+	if(wBlock == null) Deno.exit(1);
+	if(wBlock.state != "CHECKEDIN") Deno.exit(1);
+	var owner;
+	reason = reason.toLowerCase();
+	if(reason != "disposed"||reason != "destroyed"||reason != "released") Deno.exit(1);
+	reason = reason.toUpperCase();
+	//copy information like caseid creator etc and create new block
+	let block = new util.Block();
+	block.hash = util.makeHash(blockChain[blockChain.length-1]);
+	block.timestamp = 0; //FIX IN LINUX
+	block.UUID = wBlock.UUID;
+	block.evID = wBlock.evID;
+	block.state = reason;
+	block.creator = wBlock.creator;
+	block.owner = "\0";
+	block.blockLength = 15;
+	block.data = "Terminal Block\0"; 
+	blockChain.push(block);
+	util.writeBlockChain(blockChain, BLOCK_PATH);
 	return;
+
 }
 function showHistory(){
 	//check for valid flags
@@ -123,12 +157,6 @@ function showItems(){
 	blockChain = util.readBlockChain(BLOCK_PATH);
 	//create an array of blocks with corresponding case numbers
 	//print the array
-	try{
-		Deno.readFileSync(BLOCK_PATH);
-	}catch(e){
-		if(!(e instanceof Deno.errors.NotFound)) Deno.exit(1);
-	}
-	blockChain = util.readBlockChain(BLOCK_PATH);
 	if(flags.c == undefined ) Deno.exit(1);
 	var caseItems = [];
 	for (var i = 0; i < blockChain.length; i++) {
@@ -142,6 +170,11 @@ function showItems(){
 function showCases(){
 	//check for blockchain and import
 	//print each unique case number
+	try{
+		Deno.readFileSync(BLOCK_PATH);
+	}catch(e){
+		if(e instanceof Deno.errors.NotFound) Deno.exit(1);
+	}
 	blockChain = util.readBlockChain(BLOCK_PATH);
 	console.log("Cases:");
 	var caseIDs = [];
@@ -180,7 +213,7 @@ function checkIn(){
 	block.UUID = wBlock.UUID;
 	block.evID = wBlock.evID;
 	block.state = "CHECKEDIN";
-	block.creator = flags.g;
+	block.creator = wBlock.creator;
 	block.owner = "\0";
 	block.blockLength = 15;
 	block.data = "Modified Block\0"; 
@@ -232,10 +265,10 @@ function checkOut(){
 	block.UUID = wBlock.UUID;
 	block.evID = wBlock.evID;
 	block.state = "CHECKEDOUT";
-	block.creator = flags.g;
+	block.creator = wBlock.creator;
 	block.owner = owner;
 	block.blockLength = 15;
-	block.data = "Modified Block\0"; 
+	block.data = "Added Block\0"; 
 	blockChain.push(block);
 	util.writeBlockChain(blockChain, BLOCK_PATH);
 	return;
@@ -315,7 +348,7 @@ function generateTestData(block){
 	block.creator="HoldenC";
 	block.owner="HoldenClarke";
 	block.blockLength=14;
-	block.data="Initial BlockH"
+	block.data="Initial Block\0"
 }
 
 
