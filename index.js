@@ -293,6 +293,9 @@ function add(){
 			i++;
 		}
 	}
+	//make sure evID is unique
+	blockChain.forEach((e)=>{ if(items.indexOf(e.evID) != -1) Deno.exit(1); });
+	
 	//make the block :)
 	items.forEach((e)=>{
 		console.log(e);
