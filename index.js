@@ -298,7 +298,6 @@ function add(){
 	
 	//make the block :)
 	items.forEach((e)=>{
-		console.log(e);
 		let block = new util.Block();
 		block.hash = util.makeHash(blockChain[blockChain.length-1]);
 		block.timestamp = 0; //FIX IN LINUX
@@ -310,7 +309,6 @@ function add(){
 		block.blockLength = 12;
 		block.data = "Added Block\0";
 		blockChain.push(block);
-		console.log(block);
 	});
 
 	util.writeBlockChain(blockChain, BLOCK_PATH);
@@ -329,7 +327,7 @@ function verify(){
 	var badParent;
 	var cases = [];
 	var parents = [];
-	for (var i = 0; i < blockChain.length; i++) {
+	for (var i = 1; i < blockChain.length; i++) {
 		//check for parent not found
 		//error = 1
 		var folder = cases.includes(blockChain[i].UUID);
@@ -354,12 +352,15 @@ function verify(){
 		//check for checksum validity
 		//error = 3
 		var checksum = util.makeHash(blockChain[i]);
-		if (checksum != blockChain[i+1].hash && i != blockChain.length - 1) {
-			error = 3; 
-			badBlock = checksum;
-			break;
-		} // if hash of next block in blockChain does not equal checksum, checksum doesn't match
 
+		//solving fencepost
+		if(i < blockChain.length-1){
+			if (checksum != blockChain[i+1].hash && i != blockChain.length - 1) {
+				error = 3; 
+				badBlock = checksum;
+				break;
+			} // if hash of next block in blockChain does not equal checksum, checksum doesn't match
+		}
 		//check for removal
 		//error = 4
 		if (blockChain[i].state == "disposed" || blockChain[i].state == "destroyed" || blockChain[i].state == "released") {
@@ -392,10 +393,15 @@ function verify(){
 	return;
 }
 function init(){
+	let found = true;
 	try{
 		Deno.readFileSync(BLOCK_PATH);
 	}catch(e){
-		if(!(e instanceof Deno.errors.NotFound)) Deno.exit(1);
+		found = false;
+	}
+	if(found){
+		console.log(`Blockchain file found with INITIAL block.`);
+		Deno.exit();
 	}
 	console.log("Blockchain file not found. Created INITIAL block.");
 	let block = new util.Block();
