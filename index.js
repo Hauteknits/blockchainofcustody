@@ -75,11 +75,43 @@ function showItems(){
 	//check for blockchain and import
 	//create an array of blocks with corresponding case numbers
 	//print the array
+	try{
+		Deno.readFileSync(BLOCK_PATH);
+	}catch(e){
+		if(!(e instanceof Deno.errors.NotFound)) Deno.exit(1);
+	}
+	blockChain = util.readBlockChain(BLOCK_PATH);
+	if(flags.c == undefined ) Deno.exit(1);
+
+	var cID;
+	for(var i = 0; i < Deno.args.length; i++){
+		if(Deno.args[i] == '-c'){
+			cID = Deno.args[i+1];
+			i++;
+		}
+	}
+	var caseItems = [];
+	for (var i = 0; i < blockChain.length; i++) {
+		if(blockChain[i].UUID == cID) {
+			caseItems.push(blockChain[i])
+		}
+	}
+	console.log(caseItems);
 	return;	
 }
 function showCases(){
 	//check for blockchain and import
 	//print each unique case number
+	blockChain = util.readBlockChain(BLOCK_PATH);
+	console.log("Cases:");
+	var caseIDs = [];
+	for (var i = 0; i < blockChain.length; i++) {
+		var search = caseIDs.includes(blockChain[i].UUID);
+		if (!search) {
+			console.log("Case ID: ", blockChain[i].UUID);
+			caseIDs.push(blockChain[i].UUID);
+		}
+	}
 	return;
 }
 function checkIn(){
