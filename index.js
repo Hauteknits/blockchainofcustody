@@ -387,6 +387,7 @@ function verify(){
 		} else if (error == 4) {
 			console.log("Item checked out or checked in after removal from chain.");
 		}
+		Deno.exit(1);
 	}
 	return;
 }
