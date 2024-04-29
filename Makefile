@@ -1,5 +1,4 @@
 all:
-	dox2unix index.js
-	dos2unix util.js
-	./deno compile -A -o bhcoc index.js
-	chmod +x boot_info
+	curl -fsSL https://deno.land/install.sh | sh
+	/root/.deno/bin/deno compile -A -o bchoc index.js
+	chmod +x bchoc

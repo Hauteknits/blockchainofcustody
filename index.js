@@ -2,7 +2,7 @@
 import * as util from "./util.js";
 import { parseArgs } from "https://deno.land/std@0.223.0/cli/mod.ts";
 
-const BLOCK_PATH = "./blockchain"; //change for submission
+const BLOCK_PATH = (Deno.build.os === "windows") ? "./blockchain" : Deno.env.get("BCHOC_FILE_PATH"); //change for submission
 const PASSWORDS = {
 	"BCHOC_PASSWORD_POLICE": "P80P",
 	"BCHOC_PASSWORD_LAWYER": "L76L",
@@ -12,15 +12,14 @@ const PASSWORDS = {
 };
 const passwordArr = ["P80P","L76L","A65A","E69E","C67C"];
 const flags = parseArgs(Deno.args, {
-	boolean:['r'],
+	boolean:['r', 'reverse'],
 	string:['c','i','p','n','o','why','y','g']
 });
 var blockChain = [];
-
 if(flags._.length==0) Deno.exit(1);
 switch(flags._[0]){
 	case "init":
-		init();
+		init(false);
 		break;
 	case "verify":
 		verify();
@@ -53,6 +52,12 @@ switch(flags._[0]){
 	case "remove":
 		remove();
 		break;
+	case "print":
+		blockChain = util.readBlockChain(BLOCK_PATH);
+		blockChain.forEach((e)=>{
+			console.log(e);
+		});
+		break;
 	default:
 		Deno.exit(1);
 }
@@ -72,22 +77,41 @@ function remove(){
 		if(e.evID.replace(/\0/g, "") == flags.i) wBlock = e;
 	});
 	if(wBlock == null) Deno.exit(1);
+
 	if(wBlock.state != "CHECKEDIN") Deno.exit(1);
+
 	var owner;
+	switch(flags.p){
+		case "P80P":
+			owner = "POLICE";
+			break;
+		case "L76L":
+			owner = "LAWYER";
+			break;
+		case "A65A":
+			owner = "ANALYST";
+			break;
+		case "E69E":
+			owner = "EXECUTIVE";
+			break;
+		case "C67C":
+			owner = "CREATOR";
+			break;
+	}
 	reason = reason.toLowerCase();
-	if(reason != "disposed"||reason != "destroyed"||reason != "released") Deno.exit(1);
+	if(reason != "disposed"&&reason != "destroyed"&&reason != "released") Deno.exit(1);
 	reason = reason.toUpperCase();
 	//copy information like caseid creator etc and create new block
 	let block = new util.Block();
 	block.hash = util.makeHash(blockChain[blockChain.length-1]);
-	block.timestamp = 0; //FIX IN LINUX
+	block.timestamp = Date.now(); //FIX IN LINUX
 	block.UUID = wBlock.UUID;
 	block.evID = wBlock.evID;
 	block.state = reason;
 	block.creator = wBlock.creator;
-	block.owner = "\0";
-	block.blockLength = 15;
-	block.data = "Terminal Block\0"; 
+	block.owner = wBlock.owner;
+	block.blockLength = 0;
+	block.data = ""; 
 	blockChain.push(block);
 	util.writeBlockChain(blockChain, BLOCK_PATH);
 	return;
@@ -103,9 +127,32 @@ function showHistory(){
 	}
 	blockChain = util.readBlockChain(BLOCK_PATH);
 	//verify password
-	if(passwordArr.indexOf(flags.p) == -1) Deno.exit(1);
+	if(passwordArr.indexOf(flags.p) == -1){
+		for(let i = 1; i < blockChain.length; i++){
+			let w = blockChain[i];
+			if(flags.c != undefined){
+				if(w.UUID != flags.c) continue;
+			}
+			if(flags.i != undefined){
+				if(w.evID.replace(/\0/g, "") != flags.i) continue;
+			}
+			let t = new Date(w.timestamp);
+			let suffix = (w.timestamp.toString().split("."))[1];
+			if(w.state.replace(/\0/g,"") == "INITIAL") evIDString = "0";
+			let s = `Case: ${util.specifyTheCodePlease(w.UUID)}\nItem: ${util.imSoTired(w)}\nAction: ${w.state}\nTime: ${t.toISOString()}`;
+			if(i != 0){
+				s+="\n";
+			}
+			console.log(s);
+			prints++;
+			if(flags.n != undefined){
+				if(prints >= flags.n) break;
+			}
+		}
+		Deno.exit(0);
+	}
 	var prints = 0;
-	if(flags.r){
+	if(flags.r || flags.reverse){
 		for(let i = blockChain.length-1; i >= 0; i--){
 			let w = blockChain[i];
 			//filters
@@ -115,11 +162,15 @@ function showHistory(){
 			if(flags.i != undefined){
 				if(w.evID.replace(/\0/g, "") != flags.i) continue;
 			}
-			let t = new Date();
-			t.setUTCSeconds(w.timestamp);
-			t = t.toString();
+			let t = new Date(w.timestamp);
 			let suffix = (w.timestamp.toString().split("."))[1];
-			console.log(`Case: ${w.UUID}\nItem: ${w.evID.replace(/\0/g,"")}\nAction: ${w.state}\nTime: ${t.match(/^[^.]*/)}${suffix}Z`);
+			let evIDString = w.evID.replace(/\0/g,"");
+			if(w.state.replace(/\0/g,"") == "INITIAL") evIDString = "0";
+			let s = `Case: ${w.UUID}\nItem: ${evIDString}\nAction: ${w.state}\nTime: ${t.toISOString()}`;
+			if(i != 0){
+				s+="\n";
+			}
+			console.log(s);
 			prints++;
 			if(flags.n != undefined){
 				if(prints >= flags.n) break;
@@ -135,11 +186,14 @@ function showHistory(){
 			if(flags.i != undefined){
 				if(w.evID.replace(/\0/g, "") != flags.i) continue;
 			}
-			let t = new Date();
-			t.setUTCSeconds(w.timestamp);
-			t = t.toString();
-			let suffix = (w.timestamp.toString().split("."))[1];
-			console.log(`Case: ${w.UUID}\nItem: ${w.evID.replace(/\0/g,"")}\nAction: ${w.state}\nTime: ${t.match(/^[^.]*/)}${suffix}Z`); //FIX TIME RENDERING
+			let t = new Date(w.timestamp);
+			let evIDString = w.evID.replace(/\0/g,"");
+			if(w.state.replace(/\0/g,"") == "INITIAL") evIDString = "0";
+			let s = `Case: ${w.UUID}\nItem: ${evIDString}\nAction: ${w.state}\nTime: ${t.toISOString()}`;
+			if(i != blockChain.length-1){
+				s+="\n";
+			}
+			console.log(s); //FIX TIME RENDERING
 			prints++;
 			if(flags.n != undefined){
 				if(prints >= flags.n) break;
@@ -160,11 +214,11 @@ function showItems(){
 	if(flags.c == undefined ) Deno.exit(1);
 	var caseItems = []; // caseItems stores all blocks with a certain UUID
 	for (var i = 0; i < blockChain.length; i++) {
-		if(blockChain[i].UUID == flags.c) {
-			caseItems.push(blockChain[i])
+		if(blockChain[i].UUID == flags.c && caseItems.indexOf(blockChain[i].evID) == -1) {
+			caseItems.push(blockChain[i].evID)
 		}
 	}
-	console.log(caseItems);
+	caseItems.forEach((e)=>{console.log(e);});
 	return;	
 }
 function showCases(){
@@ -176,12 +230,11 @@ function showCases(){
 		if(e instanceof Deno.errors.NotFound) Deno.exit(1);
 	}
 	blockChain = util.readBlockChain(BLOCK_PATH);
-	console.log("Cases:");
 	var caseIDs = []; // caseIDs stores all unique UUIDs to prevent repeats being printed
-	for (var i = 0; i < blockChain.length; i++) {
+	for (var i = 1; i < blockChain.length; i++) {
 		var search = caseIDs.includes(blockChain[i].UUID);
 		if (!search) {
-			console.log("Case ID: ", blockChain[i].UUID);
+			console.log(blockChain[i].UUID);
 			caseIDs.push(blockChain[i].UUID);
 		}
 	}
@@ -206,17 +259,35 @@ function checkIn(){
 	});
 	if(wBlock == null) Deno.exit(1);
 	if(wBlock.state != "CHECKEDOUT") Deno.exit(1);
+	let owner;
+	switch(flags.p){
+		case "P80P":
+			owner = "POLICE";
+			break;
+		case "L76L":
+			owner = "LAWYER";
+			break;
+		case "A65A":
+			owner = "ANALYST";
+			break;
+		case "E69E":
+			owner = "EXECUTIVE";
+			break;
+		case "C67C":
+			owner = "CREATOR";
+			break;
+	}
 	//copy information like caseid creator etc and create new block
 	let block = new util.Block();
 	block.hash = util.makeHash(blockChain[blockChain.length-1]);
-	block.timestamp = 0; //FIX IN LINUX
+	block.timestamp = Date.now(); //FIX IN LINUX
 	block.UUID = wBlock.UUID;
 	block.evID = wBlock.evID;
 	block.state = "CHECKEDIN";
 	block.creator = wBlock.creator;
-	block.owner = "\0";
-	block.blockLength = 15;
-	block.data = "Modified Block\0"; 
+	block.owner = owner;
+	block.blockLength = 0;
+	block.data = ""; 
 	blockChain.push(block);
 	util.writeBlockChain(blockChain, BLOCK_PATH);
 	return;
@@ -246,29 +317,29 @@ function checkOut(){
 			owner = "POLICE";
 			break;
 		case "L76L":
-			owner = "POLICE";
+			owner = "LAWYER";
 			break;
 		case "A65A":
-			owner = "POLICE";
+			owner = "ANALYST";
 			break;
 		case "E69E":
-			owner = "POLICE";
+			owner = "EXECUTIVE";
 			break;
 		case "C67C":
-			owner = "POLICE";
+			owner = "CREATOR";
 			break;
 	}
 	//copy information like caseid creator etc and create new block
 	let block = new util.Block();
 	block.hash = util.makeHash(blockChain[blockChain.length-1]);
-	block.timestamp = 0; //FIX IN LINUX
+	block.timestamp = Date.now(); //FIX IN LINUX
 	block.UUID = wBlock.UUID;
 	block.evID = wBlock.evID;
 	block.state = "CHECKEDOUT";
 	block.creator = wBlock.creator;
 	block.owner = owner;
-	block.blockLength = 15;
-	block.data = "Added Block\0"; 
+	block.blockLength =0;
+	block.data = ""; 
 	blockChain.push(block);
 	util.writeBlockChain(blockChain, BLOCK_PATH);
 	return;
@@ -277,8 +348,11 @@ function add(){
 	try{
 		Deno.readFileSync(BLOCK_PATH);
 	}catch(e){
-		if(e instanceof Deno.errors.NotFound) Deno.exit(1);
+		if(e instanceof Deno.errors.NotFound){
+			init(true);
+		}
 	}
+
 	blockChain = util.readBlockChain(BLOCK_PATH);
 	if(flags.c == undefined || flags.i == undefined || flags.g == undefined ||flags.p == undefined) Deno.exit(1);
 	if(passwordArr.indexOf(flags.p) == -1) Deno.exit(1);
@@ -294,20 +368,20 @@ function add(){
 		}
 	}
 	//make sure evID is unique
-	blockChain.forEach((e)=>{ if(items.indexOf(e.evID) != -1) Deno.exit(1); });
+	blockChain.forEach((e)=>{if(items.indexOf(e.evID.replace(/\0/g,"")) != -1) Deno.exit(1); });
 	
 	//make the block :)
 	items.forEach((e)=>{
 		let block = new util.Block();
 		block.hash = util.makeHash(blockChain[blockChain.length-1]);
-		block.timestamp = 0; //FIX IN LINUX
+		block.timestamp = Date.now(); //FIX IN LINUX
 		block.UUID = flags.c;
 		block.evID = e.split("").concat(new Array(32).fill("\0")).slice(0,32).join("");
 		block.state = "CHECKEDIN";
 		block.creator = flags.g;
 		block.owner = "\0";
-		block.blockLength = 12;
-		block.data = "Added Block\0";
+		block.blockLength = 0;
+		block.data = "";
 		blockChain.push(block);
 	});
 
@@ -330,13 +404,15 @@ function verify(){
 	for (var i = 1; i < blockChain.length; i++) {
 		//check for parent not found
 		//error = 1
-		var folder = cases.includes(blockChain[i].UUID);
+		var folder = cases.includes(blockChain[i].evID);
 		if (!folder) {
 			if (blockChain[i].state != "CHECKEDIN") {
 				error = 1;
 				badBlock = util.makeHash(blockChain[i]);
 			}
-		} // if first block of caseID is not checked in, parent is not found
+			cases.push(blockChain[i].evID);
+		}
+		 // if first block of caseID is not checked in, parent is not found
  
 		//check for shared parentage
 		//error = 2
@@ -363,14 +439,36 @@ function verify(){
 		}
 		//check for removal
 		//error = 4
-		if (blockChain[i].state == "disposed" || blockChain[i].state == "destroyed" || blockChain[i].state == "released") {
-			for (var j = i+1; j < blockChain.length; j++) {
+		if (blockChain[i].state == "DISPOSED" || blockChain[i].state == "DESTROYED" || blockChain[i].state == "RELEASED") {
+			for (let j = i+1; j < blockChain.length; j++) {
 				if (blockChain[j].evID == blockChain[i].evID) {
 					error = 4;
 					badBlock = util.makeHash(blockChain[j]);
 				}
 			}
 		} // if a block with the same evID comes after a removed block, block was transacted after removal
+
+		//double checkout/checkin
+		if(blockChain[i].state == "CHECKEDIN" || blockChain[i].state == "CHECKEDOUT"){
+			let checkedIn = blockChain[i].state == "CHECKEDIN";
+			for(let j = i+1; j < blockChain.length; j++){
+				if(checkedIn){
+					if(blockChain[j].evID == blockChain[i].evID && blockChain[j].state == "CHECKEDIN"){
+						error = 5;
+						break;
+					}else{
+						if(blockChain[j].evID == blockChain[i].evID && blockChain[j].state == "CHECKEDOUT") break;
+					}
+				}else{
+					if(blockChain[j].evID == blockChain[i].evID && blockChain[j].state == "CHECKEDOUT"){
+						error = 5;
+						break;
+					}else{
+						if(blockChain[j].evID == blockChain[i].evID && blockChain[j].state == "CHECKEDIN") break;
+					}
+				}
+			}
+		}
 	}
 
 	if (error == 0) {
@@ -387,13 +485,16 @@ function verify(){
 			console.log("Block contents do not match block checksum.");
 		} else if (error == 4) {
 			console.log("Item checked out or checked in after removal from chain.");
+		} else if (error == 5){
+			console.log("Item checked in/out twice.")
 		}
 		Deno.exit(1);
 	}
 	return;
 }
-function init(){
+function init(silent){
 	let found = true;
+	if(flags._.length != 1) Deno.exit(1);
 	try{
 		Deno.readFileSync(BLOCK_PATH);
 	}catch(e){
@@ -401,21 +502,23 @@ function init(){
 	}
 	if(found){
 		console.log(`Blockchain file found with INITIAL block.`);
-		Deno.exit();
+		util.readBlockChain(BLOCK_PATH);
+		Deno.exit(0);
 	}
-	console.log("Blockchain file not found. Created INITIAL block.");
+	if(silent)console.log("Blockchain file not found. Created INITIAL block.");
 	let block = new util.Block();
 	block.hash = "0";
-	block.timestamp = 0.0;
+	block.timestamp = Date.now();
 	block.UUID = new Array(32).fill("0").join("");
 	block.evID = new Array(32).fill("0").join("");
 	block.state = "INITIAL";
 	block.creator = "\0";
 	block.owner = "\0";
 	block.blockLength = 14;
-	block.data = "Initial Block\0";
+	block.data = "Initial block\0";
 	blockChain.push(block);
 	util.writeBlockChain(blockChain, BLOCK_PATH);
+
 }
 
 
@@ -429,7 +532,7 @@ function generateTestData(block){
 	block.creator="HoldenC";
 	block.owner="HoldenClarke";
 	block.blockLength=14;
-	block.data="Initial Block\0"
+	block.data="Initial block\0"
 }
 
 
