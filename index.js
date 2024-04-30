@@ -505,7 +505,7 @@ function init(silent){
 		util.readBlockChain(BLOCK_PATH);
 		Deno.exit(0);
 	}
-	if(silent)console.log("Blockchain file not found. Created INITIAL block.");
+	if(!silent) console.log("Blockchain file not found. Created INITIAL block.");
 	let block = new util.Block();
 	block.hash = "0";
 	block.timestamp = Date.now();
